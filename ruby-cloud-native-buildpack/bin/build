@@ -11,16 +11,25 @@ wget -qO /tmp/yj https://github.com/sclevine/yj/releases/download/v2.0/yj-linux 
 layersdir=$1
 plan=$3
 
-# 2. DOWNLOAD RUBY
+# Compares previous ruby version to the current ruby version
 rubylayer="$layersdir"/ruby
-mkdir -p "$rubylayer"
 ruby_version=$(cat "$plan" | /tmp/yj -t | /tmp/jq -r '.entries[] | select(.name == "ruby") | .version')
-echo "---> Downloading and extracting Ruby $ruby_version"
-ruby_url=https://s3-external-1.amazonaws.com/heroku-buildpack-ruby/heroku-18/ruby-$ruby_version.tgz
-wget -q -O - "$ruby_url" | tar -xzf - -C "$rubylayer"
+previous_ruby_version=$(cat "$rubylayer.toml" | /tmp/yj -t | /tmp/jq -r .metadata 2>/dev/null || echo 'not found')
 
-# 3. MAKE RUBY AVAILABLE DURING LAUNCH
-echo -e 'launch = true' > "$rubylayer.toml"
+if [[ $ruby_version == $previous_ruby_version ]] ; then
+    # Determine if ruby version hasn't changed, so it can reuse existing ruby without downloading it again
+    echo "---> Reusing Ruby $ruby_version"
+else
+    # Determine if there has been a change in ruby version and install the necessary version
+    # 2. MAKE RUBY AVAILABLE DURING LAUNCH
+    echo -e "cache = true\nlaunch = true\nmetadata = \"$ruby_version\"" > "$rubylayer.toml"
+
+    # 3. DOWNLOAD RUBY
+    echo "---> Downloading and extracting Ruby $ruby_version"
+    mkdir -p "$rubylayer"
+    ruby_url=https://s3-external-1.amazonaws.com/heroku-buildpack-ruby/heroku-18/ruby-$ruby_version.tgz
+    wget -q -O - "$ruby_url" | tar -xzf - -C "$rubylayer"
+fi
 
 # 4. MAKE RUBY AVAILABLE TO THIS SCRIPT
 export PATH="$rubylayer"/bin:$PATH
