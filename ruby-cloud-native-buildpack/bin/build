@@ -59,6 +59,10 @@ else
     bundle install --path "$bundlerlayer" --binstubs "$bundlerlayer/bin"
 fi
 
+if [ ! -z ${SECRET+x} ]; then
+    echo "The secret environment variable \$SECRET has been set to \"$SECRET\" ! :D"
+fi
+
 # 7. SET DEFAULT START COMMAND
 echo 'processes = [{ type = "web", command = "bundle exec ruby app.rb"}]' > "$layersdir/launch.toml"
 
